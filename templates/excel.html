@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Excel{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <h1 class="h3 mb-0">Excel Entegrasyonu</h1>
+  <p class="text-body-secondary mb-0 small">Test senaryolarını Excel'den içeri alın veya Excel'e aktarın</p>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-upload me-1"></i> İçe Aktar</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('excel_upload') }}" enctype="multipart/form-data">
+          <label class="drop-zone w-100" for="file">
+            <i class="bi bi-file-earmark-arrow-up display-6"></i>
+            <span class="d-block mt-2 fw-medium" id="fileName">Excel dosyası seçin veya buraya sürükleyin</span>
+            <span class="small text-body-secondary">.xlsx / .xlsm · en fazla 16 MB</span>
+            <input type="file" id="file" name="file" accept=".xlsx,.xlsm" class="visually-hidden" required>
+          </label>
+          <button class="btn btn-primary mt-3"><i class="bi bi-arrow-right-circle"></i> Yükle ve kolonları eşleştir</button>
+        </form>
+        <hr>
+        <h3 class="h6">Nasıl çalışır?</h3>
+        <ol class="small text-body-secondary mb-3">
+          <li>Dosyayı yükleyin; sayfa ve başlık satırını seçin.</li>
+          <li>Excel kolonlarını uygulama alanlarıyla eşleştirin (başlıklar otomatik tahmin edilir).</li>
+          <li>Hedef paketi seçin. <strong>Test Kodu</strong> (veya Test Adı) eşleşen senaryolar isteğe bağlı olarak güncellenir, yeniler eklenir.</li>
+        </ol>
+        <a href="{{ url_for('excel_template') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-download"></i> Örnek şablonu indir</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-download me-1"></i> Dışa Aktar</div>
+      <div class="card-body">
+        <form method="get" action="{{ url_for('excel_export') }}">
+          <div class="mb-3">
+            <label class="form-label" for="ex_suite">Test paketi</label>
+            <select class="form-select" id="ex_suite" name="suite_id">
+              <option value="">Tüm paketler</option>
+              {% for s in suites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="ex_module">Modül</label>
+            <select class="form-select" id="ex_module" name="module">
+              <option value="">Tüm modüller</option>
+              {% for m in modules %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="form-label" for="ex_status">Durum</label>
+            <select class="form-select" id="ex_status" name="status">
+              <option value="">Tüm durumlar</option>
+              {% for key in STATUS_ORDER %}<option value="{{ key }}">{{ STATUS_LABELS[key] }}</option>{% endfor %}
+            </select>
+          </div>
+          <button class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Excel dosyasını indir</button>
+        </form>
+        <p class="small text-body-secondary mt-3 mb-0">
+          Dışa aktarılan dosya, içe aktarma ile aynı kolon başlıklarını kullanır; dosyayı düzenleyip tekrar
+          içe aktararak mevcut testleri toplu güncelleyebilirsiniz. Dosyada ayrıca bir <strong>Özet</strong> sayfası bulunur.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

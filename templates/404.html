@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Sayfa Bulunamadı{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <div class="display-1 fw-bold text-body-tertiary">404</div>
+  <h1 class="h4">Aradığınız sayfa veya kayıt bulunamadı</h1>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-primary mt-3">Dashboard'a dön</a>
+</div>
+{% endblock %}

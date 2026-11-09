@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}İçe Aktarma Sonucu{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">İçe Aktarma Tamamlandı</h1>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body"><div class="stat-label">İşlenen satır</div><div class="stat-value">{{ result.total }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card stat-card" style="--accent-bar: var(--st-passed)"><div class="card-body"><div class="stat-label"><i class="bi bi-plus-circle stat-icon"></i> Eklenen</div><div class="stat-value">{{ result.inserted }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card stat-card" style="--accent-bar: var(--brand)"><div class="card-body"><div class="stat-label"><i class="bi bi-arrow-repeat stat-icon"></i> Güncellenen</div><div class="stat-value">{{ result.updated }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card stat-card" style="--accent-bar: var(--st-not_run)"><div class="card-body"><div class="stat-label"><i class="bi bi-skip-forward stat-icon"></i> Atlanan</div><div class="stat-value">{{ result.skipped }}</div></div></div></div>
+</div>
+{% if result.sheets|length > 1 %}
+<div class="card mb-3">
+  <div class="card-header">Sayfa bazında</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr><th>Sayfa</th><th class="text-end">Eklenen</th><th class="text-end">Güncellenen</th><th class="text-end">Atlanan</th></tr></thead>
+      <tbody>
+        {% for s in result.sheets %}
+        <tr><td>{{ s.name }}</td><td class="text-end num">{{ s.inserted }}</td><td class="text-end num">{{ s.updated }}</td><td class="text-end num">{{ s.skipped }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% if result.errors %}
+<div class="card mb-3">
+  <div class="card-header">Uyarılar</div>
+  <ul class="list-group list-group-flush small">
+    {% for e in result.errors[:50] %}<li class="list-group-item">{{ e }}</li>{% endfor %}
+    {% if result.errors|length > 50 %}<li class="list-group-item text-body-secondary">… ve {{ result.errors|length - 50 }} uyarı daha</li>{% endif %}
+  </ul>
+</div>
+{% endif %}
+<div class="d-flex gap-2">
+  <a href="{{ url_for('cases') }}" class="btn btn-primary"><i class="bi bi-list-check"></i> Senaryoları görüntüle</a>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Dashboard</a>
+  <a href="{{ url_for('excel') }}" class="btn btn-outline-secondary">Başka dosya yükle</a>
+</div>
+{% endblock %}

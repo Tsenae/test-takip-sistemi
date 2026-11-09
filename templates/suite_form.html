@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Yeni Paket' if is_new else 'Paketi Düzenle' }}{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('suites') }}">Test Paketleri</a></li>
+  <li class="breadcrumb-item active">{{ 'Yeni paket' if is_new else suite.name }}</li>
+</ol></nav>
+<div class="row"><div class="col-lg-7 col-xl-6">
+  <div class="card">
+    <div class="card-header">{{ 'Yeni Test Paketi' if is_new else 'Paketi Düzenle' }}</div>
+    <div class="card-body">
+      <form method="post">
+        <div class="mb-3">
+          <label class="form-label" for="name">Paket adı <span class="text-danger">*</span></label>
+          <input class="form-control" id="name" name="name" value="{{ suite.name }}" required maxlength="200" autofocus>
+        </div>
+        <div class="mb-4">
+          <label class="form-label" for="description">Açıklama</label>
+          <textarea class="form-control" id="description" name="description" rows="4">{{ suite.description }}</textarea>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Kaydet</button>
+          <a href="{{ url_for('suites') }}" class="btn btn-outline-secondary">İptal</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

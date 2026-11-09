@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import delete_button with context %}
+{% block title %}Kanban{% endblock %}
+{% block content %}
+{% set here = request.full_path %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Kanban</h1>
+    <p class="text-body-secondary mb-0 small">Görevleri sütunlar arasında sürükleyerek taşıyın</p>
+  </div>
+  <div class="btn-group btn-group-sm" role="group" aria-label="Görünüm">
+    <a href="{{ url_for('todos') }}" class="btn btn-outline-primary"><i class="bi bi-list-ul"></i> Liste</a>
+    <a href="{{ url_for('kanban') }}" class="btn btn-primary"><i class="bi bi-kanban"></i> Kanban</a>
+  </div>
+</div>
+
+<div class="kanban" id="kanban" data-reorder-url="{{ url_for('kanban_reorder') }}">
+  {% for status in TODO_STATUS_ORDER %}
+  <section class="kanban-col kanban-{{ status }}" data-status="{{ status }}" aria-label="{{ TODO_STATUS_LABELS[status] }}">
+    <header class="kanban-col-head">
+      <span><i class="bi {{ TODO_STATUS_ICONS[status] }}"></i> {{ TODO_STATUS_LABELS[status] }}</span>
+      <span class="kanban-count num" data-count-for="{{ status }}">{{ columns[status]|length }}</span>
+    </header>
+
+    <div class="kanban-list" data-status="{{ status }}">
+      {% for t in columns[status] %}
+      {% set overdue = status != 'done' and t.due_date and t.due_date < today %}
+      <article class="kanban-card priority-{{ t.priority }}" draggable="true" data-id="{{ t.id }}">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div class="kanban-title {% if status == 'done' %}is-done{% endif %}">{{ t.title }}</div>
+          <div class="dropdown flex-shrink-0">
+            <button class="btn btn-sm btn-link p-0 text-body-secondary" type="button" data-bs-toggle="dropdown" aria-label="İşlemler">
+              <i class="bi bi-three-dots"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="{{ url_for('todo_edit', todo_id=t.id, next=here) }}"><i class="bi bi-pencil me-2"></i>Düzenle</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><h6 class="dropdown-header">Taşı</h6></li>
+              {% for s2 in TODO_STATUS_ORDER if s2 != status %}
+              <li>
+                <form method="post" action="{{ url_for('todo_move', todo_id=t.id) }}">
+                  <input type="hidden" name="status" value="{{ s2 }}"><input type="hidden" name="next" value="{{ here }}">
+                  <button class="dropdown-item"><i class="bi {{ TODO_STATUS_ICONS[s2] }} me-2"></i>{{ TODO_STATUS_LABELS[s2] }}</button>
+                </form>
+              </li>
+              {% endfor %}
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <form method="post" action="{{ url_for('todo_delete', todo_id=t.id) }}" onsubmit="return confirm('Bu görev silinecek. Emin misiniz?');">
+                  <input type="hidden" name="next" value="{{ here }}">
+                  <button class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Sil</button>
+                </form>
+              </li>
+            </ul>
+          </div>
+        </div>
+        {% if t.description %}<div class="kanban-desc">{{ t.description }}</div>{% endif %}
+        <div class="d-flex flex-wrap gap-2 align-items-center mt-2 small">
+          <span class="badge {{ PRIORITY_BADGES[t.priority] }}">{{ PRIORITY_LABELS[t.priority] }}</span>
+          {% if t.due_date %}
+          <span class="{% if overdue %}text-danger fw-semibold{% elif t.due_date == today and status != 'done' %}text-warning-emphasis fw-semibold{% else %}text-body-secondary{% endif %}">
+            <i class="bi bi-calendar-event"></i> {{ t.due_date|datefmt }}{% if overdue %} · gecikmiş{% endif %}
+          </span>
+          {% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+
+    <form method="post" action="{{ url_for('todo_new') }}" class="kanban-add">
+      <input type="hidden" name="status" value="{{ status }}">
+      <input type="hidden" name="next" value="{{ here }}">
+      <input type="hidden" name="priority" value="medium">
+      <div class="input-group input-group-sm">
+        <input class="form-control" name="title" placeholder="+ Görev ekle" required aria-label="Yeni görev: {{ TODO_STATUS_LABELS[status] }}">
+        <button class="btn btn-outline-primary" title="Ekle"><i class="bi bi-plus-lg"></i></button>
+      </div>
+    </form>
+  </section>
+  {% endfor %}
+</div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="kanbanToast" class="toast text-bg-danger" role="alert"><div class="toast-body">Değişiklik kaydedilemedi, sayfa yenileniyor…</div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/kanban.js') }}"></script>
+{% endblock %}

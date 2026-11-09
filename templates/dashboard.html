@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import status_badge, stacked_progress, filter_bar with context %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Dashboard</h1>
+    <p class="text-body-secondary mb-0 small">Test ilerlemesinin genel görünümü</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('excel_export', **filter_args) }}" class="btn btn-outline-success btn-sm">
+      <i class="bi bi-file-earmark-excel"></i> Excel'e aktar
+    </a>
+    <a href="{{ url_for('case_new') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Yeni senaryo</a>
+  </div>
+</div>
+
+{{ filter_bar('dashboard', suites, modules, filters, show_status=false, show_search=false) }}
+
+{% if stats.total == 0 %}
+<div class="card empty-state text-center py-5 mb-4">
+  <div class="card-body">
+    <i class="bi bi-inbox display-4 text-body-tertiary"></i>
+    <h2 class="h5 mt-3">Henüz test senaryosu yok</h2>
+    <p class="text-body-secondary">Bir test paketi oluşturup senaryo ekleyin ya da Excel'den içe aktarın.</p>
+    <div class="d-flex justify-content-center gap-2">
+      <a href="{{ url_for('suite_new') }}" class="btn btn-primary"><i class="bi bi-collection"></i> Paket oluştur</a>
+      <a href="{{ url_for('excel') }}" class="btn btn-outline-success"><i class="bi bi-upload"></i> Excel'den içe aktar</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- KPI kutuları -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4 col-xl">
+    <a class="card stat-card h-100" href="{{ url_for('cases', **filter_args) }}">
+      <div class="card-body">
+        <div class="stat-label"><i class="bi bi-collection"></i> Toplam Test</div>
+        <div class="stat-value">{{ stats.total }}</div>
+      </div>
+    </a>
+  </div>
+  {% for key in STATUS_ORDER %}
+  <div class="col-6 col-md-4 col-xl">
+    <a class="card stat-card h-100" style="--accent-bar: {{ STATUS_COLORS[key] }}"
+       href="{{ url_for('cases', status=key, **filter_args) }}">
+      <div class="card-body">
+        <div class="stat-label"><i class="bi {{ STATUS_ICONS[key] }} stat-icon"></i> {{ STATUS_LABELS[key] }}</div>
+        <div class="stat-value">{{ stats[key] }}</div>
+        <div class="stat-sub">{{ ((stats[key] / stats.total * 100) if stats.total else 0)|round(1) }}% toplamın</div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Oranlar -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-baseline">
+          <div>
+            <div class="stat-label">Tamamlanma Oranı</div>
+            <div class="hero-value">{{ stats.completion }}<span>%</span></div>
+          </div>
+          <div class="text-body-secondary small text-end">{{ stats.executed }} / {{ stats.total }} test çalıştırıldı</div>
+        </div>
+        {{ stacked_progress(stats, 12) }}
+        <div class="formula mt-2">(Başarılı + Başarısız + Engellendi) / Toplam × 100</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-baseline">
+          <div>
+            <div class="stat-label">Başarı Oranı</div>
+            <div class="hero-value">{{ stats.success }}<span>%</span></div>
+          </div>
+          <div class="text-body-secondary small text-end">{{ stats.passed }} / {{ stats.executed }} çalıştırılan test başarılı</div>
+        </div>
+        <div class="progress" style="height: 12px" role="img" aria-label="Başarı oranı {{ stats.success }}%">
+          <div class="progress-bar" style="width: {{ stats.success }}%; background-color: {{ STATUS_COLORS['passed'] }}"></div>
+        </div>
+        <div class="formula mt-2">Başarılı / (Başarılı + Başarısız + Engellendi) × 100</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Grafikler -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">Durum Dağılımı</div>
+      <div class="card-body">
+        <div class="chart-box chart-box-sm"><canvas id="statusChart" aria-label="Durum dağılımı grafiği" role="img"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header">Paket Bazında Durum</div>
+      <div class="card-body">
+        <div class="chart-box" style="height: {{ [220, 60 + suite_stats|length * 36]|max }}px">
+          <canvas id="suiteChart" aria-label="Paket bazında durum grafiği" role="img"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">Modül Bazında Durum <span class="text-body-secondary small">(en çok testi olan 15 modül)</span></div>
+      <div class="card-body">
+        <div class="chart-box"><canvas id="moduleChart" aria-label="Modül bazında durum grafiği" role="img"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Paket ilerleme tablosu -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Paket İlerlemesi</span>
+    <a href="{{ url_for('suites') }}" class="small">Tüm paketler →</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Paket</th><th class="text-end">Toplam</th>
+          {% for key in STATUS_ORDER %}<th class="text-end">{{ STATUS_LABELS[key] }}</th>{% endfor %}
+          <th style="min-width: 180px">Tamamlanma</th><th class="text-end">Başarı</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in suite_stats %}
+        <tr>
+          <td><a href="{{ url_for('cases', suite_id=s.id) }}" class="fw-medium">{{ s.name }}</a></td>
+          <td class="text-end num">{{ s.total }}</td>
+          {% for key in STATUS_ORDER %}<td class="text-end num">{{ s[key] }}</td>{% endfor %}
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="flex-grow-1">{{ stacked_progress(s, 8) }}</div>
+              <span class="num small">{{ s.completion }}%</span>
+            </div>
+          </td>
+          <td class="text-end num">{{ s.success }}%</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-body-secondary py-4">Paket yok.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Son Başarısız / Engellenen Testler</span>
+        <a href="{{ url_for('cases', status='failed') }}" class="small">Tümü →</a>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for c in recent_failed %}
+        <li class="list-group-item d-flex justify-content-between align-items-start gap-2">
+          <div class="text-truncate">
+            <a href="{{ url_for('case_edit', case_id=c.id, next=request.full_path) }}" class="fw-medium">
+              {% if c.test_code %}<span class="text-body-secondary">{{ c.test_code }}</span> · {% endif %}{{ c.title }}
+            </a>
+            <div class="small text-body-secondary">{{ c.suite_name }}{% if c.module %} · {{ c.module }}{% endif %}</div>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            {% if c.bug_link %}<a href="{{ c.bug_link }}" target="_blank" rel="noopener" title="Hata linki"><i class="bi bi-bug"></i></a>{% endif %}
+            {{ status_badge(c.status) }}
+          </div>
+        </li>
+        {% else %}
+        <li class="list-group-item text-body-secondary text-center py-4">Başarısız veya engellenen test yok. 🎉</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Yaklaşan Görevler</span>
+        <a href="{{ url_for('todos') }}" class="small">To-Do →</a>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for t in upcoming_todos %}
+        <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+          <span class="text-truncate">{{ t.title }}</span>
+          <span class="d-flex gap-2 flex-shrink-0 align-items-center">
+            {% if t.due_date %}
+            <span class="small {% if t.due_date < today %}text-danger fw-semibold{% else %}text-body-secondary{% endif %}">
+              <i class="bi bi-calendar-event"></i> {{ t.due_date|datefmt }}
+            </span>
+            {% endif %}
+            <span class="badge {{ PRIORITY_BADGES[t.priority] }}">{{ PRIORITY_LABELS[t.priority] }}</span>
+          </span>
+        </li>
+        {% else %}
+        <li class="list-group-item text-body-secondary text-center py-4">Açık görev yok.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  window.DASHBOARD_DATA = {
+    statusOrder: {{ STATUS_ORDER|tojson }},
+    statusLabels: {{ STATUS_LABELS|tojson }},
+    statusColors: {{ STATUS_COLORS|tojson }},
+    stats: {{ stats|tojson }},
+    suites: {{ suite_stats|tojson }},
+    modules: {{ module_stats|tojson }}
+  };
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

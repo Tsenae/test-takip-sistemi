@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% block title %}Kolon Eşleştirme{% endblock %}
+{% block content %}
+{% set multi = sheets|length > 1 %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('excel') }}">Excel</a></li>
+  <li class="breadcrumb-item active">Kolon eşleştirme</li>
+</ol></nav>
+<div class="mb-3">
+  <h1 class="h3 mb-0">Kolon Eşleştirme</h1>
+  <p class="text-body-secondary mb-0 small">
+    {{ filename }} · {{ sheets|length }} sayfa · toplam {{ sheet_counts.values()|sum }} veri satırı
+  </p>
+</div>
+
+<!-- Referans sayfa / başlık satırı seçimi (GET ile yeniden yükler) -->
+<form method="get" class="card mb-3">
+  <input type="hidden" name="name" value="{{ filename }}">
+  <div class="card-body py-3 row g-2 align-items-end">
+    <div class="col-sm-5 col-md-4">
+      <label class="form-label small mb-1">{{ 'Referans sayfa (eşleştirme bu sayfanın başlıklarıyla yapılır)' if multi else 'Çalışma sayfası' }}</label>
+      <select name="sheet" class="form-select form-select-sm auto-submit">
+        {% for s in sheets %}<option value="{{ s }}" {% if s == sheet %}selected{% endif %}>{{ s }} ({{ sheet_counts[s] }})</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-sm-3 col-md-2">
+      <label class="form-label small mb-1">Başlık satırı</label>
+      <input type="number" min="1" name="header_row" value="{{ header_row }}" class="form-control form-control-sm">
+    </div>
+    <div class="col-auto"><button class="btn btn-sm btn-outline-secondary">Yenile</button></div>
+  </div>
+</form>
+
+{% if not headers %}
+<div class="alert alert-warning">Bu sayfada başlık satırı bulunamadı. Farklı bir sayfa veya başlık satırı deneyin.</div>
+{% else %}
+<form method="post" id="importForm">
+  <input type="hidden" name="sheet" value="{{ sheet }}">
+  <input type="hidden" name="header_row" value="{{ header_row }}">
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="card mb-3">
+        <div class="card-header">1. Alanları eşleştirin</div>
+        <div class="card-body">
+          <p class="small text-body-secondary">Her uygulama alanı için karşılık gelen Excel kolonunu seçin. Kullanılmayan alanları “— Yok —” bırakın.
+            {% if multi %}Diğer sayfalarda kolonlar <strong>başlık adına göre</strong> bulunur.{% endif %}</p>
+          {% for field, info in fields.items() %}
+          <div class="row g-2 align-items-center mb-2">
+            <label class="col-5 col-form-label col-form-label-sm" for="map_{{ field }}">
+              {{ info.label }}{% if field in ('title', 'test_code') %} <span class="text-body-secondary small">(adı veya kodu zorunlu)</span>{% endif %}
+            </label>
+            <div class="col-7">
+              <select class="form-select form-select-sm map-select" id="map_{{ field }}" name="map_{{ field }}">
+                <option value="">— Yok —</option>
+                {% for h in headers %}
+                <option value="{{ loop.index0 }}" {% if guess.get(field) == loop.index0 %}selected{% endif %}>{{ h or ('Kolon ' ~ loop.index) }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          {% endfor %}
+          {% set unmapped = [] %}
+          {% for h in headers %}{% if loop.index0 not in guess.values() %}{% set _ = unmapped.append(h) %}{% endif %}{% endfor %}
+          {% if unmapped %}
+          <p class="small text-body-secondary mb-0 mt-3"><i class="bi bi-info-circle"></i> Eşleşmeyen kolonlar içe aktarılmaz: {{ unmapped|join(', ') }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card" id="statusMapCard">
+        <div class="card-header">2. Durum değerlerini eşleştirin</div>
+        <div class="card-body">
+          <p class="small text-body-secondary" id="statusMapHelp">Durum kolonunda bulunan her değerin uygulamadaki karşılığını seçin.</p>
+          <div id="statusMapBody"></div>
+          <input type="hidden" name="sval_count" id="svalCount" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      {% if multi %}
+      <div class="card mb-3">
+        <div class="card-header">3. Sayfalar</div>
+        <div class="card-body">
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" role="switch" name="all_sheets" value="1" id="allSheets" checked>
+            <label class="form-check-label" for="allSheets">Birden fazla sayfayı içe aktar</label>
+          </div>
+          <div id="sheetList" class="sheet-list small">
+            {% for s in sheets %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="sheets" value="{{ s }}" id="sh{{ loop.index }}" {% if sheet_counts[s] %}checked{% endif %}>
+              <label class="form-check-label" for="sh{{ loop.index }}">{{ s }} <span class="text-body-secondary">({{ sheet_counts[s] }} satır)</span></label>
+            </div>
+            {% endfor %}
+          </div>
+          <hr>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" name="module_from_sheet" value="1" id="modFromSheet"
+                   {% if guess.get('module') is none %}checked{% endif %}>
+            <label class="form-check-label" for="modFromSheet">Modül = sayfa adı
+              <span class="small text-body-secondary">(ör. “{{ sheets[0] }}” → “{{ clean_names[sheets[0]] }}”; Modül kolonu eşleştirilmişse kullanılmaz)</span></label>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="card mb-3">
+        <div class="card-header">{{ 4 if multi else 3 }}. Hedef paket</div>
+        <div class="card-body">
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="suite_mode" id="sm_fixed" value="fixed" {% if guess.get('suite_name') is none %}checked{% endif %}>
+            <label class="form-check-label" for="sm_fixed">Tüm satırları seçilen pakete aktar</label>
+          </div>
+          <div class="ms-4 my-2">
+            {% set stem = filename.rsplit('.', 1)[0] if filename else '' %}
+            {% set match = suites|selectattr('name', 'equalto', stem)|first %}
+            <select class="form-select form-select-sm mb-2" name="suite_id" id="suiteSelect">
+              <option value="new" {% if not match %}selected{% endif %}>+ Yeni paket oluştur…</option>
+              {% for s in suites %}<option value="{{ s.id }}" {% if match and match.id == s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+            </select>
+            <input class="form-control form-control-sm" name="new_suite_name" id="newSuiteName" placeholder="Yeni paket adı"
+                   value="{{ stem }}">
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="suite_mode" id="sm_col" value="column" {% if guess.get('suite_name') is not none %}checked{% endif %}>
+            <label class="form-check-label" for="sm_col">Paketi Excel'deki “Test Paketi” kolonundan al <span class="small text-body-secondary">(olmayan paketler otomatik oluşturulur)</span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header">{{ 5 if multi else 4 }}. Mevcut testler</div>
+        <div class="card-body">
+          <label class="form-label small mb-1">Mevcut senaryoyu şu alana göre eşle</label>
+          <select name="match_by" class="form-select form-select-sm mb-1">
+            <option value="test_code" {% if guess.get('test_code') is not none %}selected{% endif %}>Test Kodu (aynı paket içinde)</option>
+            <option value="title" {% if guess.get('test_code') is none %}selected{% endif %}>Test Adı + Modül (aynı paket içinde)</option>
+          </select>
+          <p class="small text-body-secondary">Test kodu yoksa “Test Adı + Modül” kullanın; aynı adlı kontroller farklı modüllerde karışmaz.</p>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" name="update_existing" value="1" id="upd" checked>
+            <label class="form-check-label" for="upd">Eşleşen mevcut testleri güncelle <span class="small text-body-secondary">(kapalıysa atlanır)</span></label>
+          </div>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" role="switch" name="keep_blank" value="1" id="keep" checked>
+            <label class="form-check-label" for="keep">Excel'deki boş hücreler mevcut değerlerin üzerine yazılmasın</label>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary w-100"><i class="bi bi-box-arrow-in-down"></i> İçe aktarmayı başlat</button>
+    </div>
+  </div>
+</form>
+
+<div class="card mt-3">
+  <div class="card-header">Önizleme: {{ sheet }} <span class="small text-body-secondary">(ilk {{ preview|length }} satır)</span></div>
+  <div class="table-responsive">
+    <table class="table table-sm table-striped mb-0 small preview-table">
+      <thead><tr>{% for h in headers %}<th class="text-nowrap">{{ h or ('Kolon ' ~ loop.index) }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in preview %}
+        <tr>{% for v in row %}<td>{{ v if v is not none else '' }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if headers %}
+<script>
+(function () {
+  var valueSets = {{ value_sets|tojson }};
+  var guess = {{ status_guess|tojson }};
+  var known = {{ known_status|list|tojson }};
+  var labels = {{ STATUS_LABELS|tojson }};
+  var order = {{ STATUS_ORDER|tojson }};
+  var sel = document.getElementById('map_status');
+  var body = document.getElementById('statusMapBody');
+  var help = document.getElementById('statusMapHelp');
+  var count = document.getElementById('svalCount');
+
+  function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+  function render() {
+    var idx = sel.value;
+    body.innerHTML = '';
+    count.value = 0;
+    if (idx === '') { help.textContent = 'Durum kolonu eşleştirilmedi; tüm testler “Çalıştırılmadı” olarak eklenir.'; return; }
+    var vals = valueSets[idx];
+    if (!vals) { help.textContent = 'Seçilen kolonda çok fazla farklı değer var; bu bir durum kolonu gibi görünmüyor.'; return; }
+    if (!vals.length) { help.textContent = 'Seçilen kolon boş.'; return; }
+    help.textContent = 'Durum kolonunda bulunan her değerin uygulamadaki karşılığını seçin.';
+    var html = '<table class="table table-sm align-middle mb-0"><tbody>';
+    vals.forEach(function (v, i) {
+      var isKnown = known.indexOf(v) !== -1;
+      html += '<tr><td class="w-50">' + esc(v) +
+        (isKnown ? '' : ' <span class="badge text-bg-warning ms-1" title="Otomatik tanınmadı, lütfen kontrol edin">tanınmadı</span>') +
+        '<input type="hidden" name="sval_' + i + '" value="' + esc(v) + '"></td><td>' +
+        '<select class="form-select form-select-sm" name="smap_' + i + '">' +
+        order.map(function (k) {
+          return '<option value="' + k + '"' + (guess[v] === k ? ' selected' : '') + '>' + labels[k] + '</option>';
+        }).join('') + '</select></td></tr>';
+    });
+    body.innerHTML = html + '</tbody></table>';
+    count.value = vals.length;
+  }
+  sel.addEventListener('change', render);
+  render();
+
+  var all = document.getElementById('allSheets');
+  var list = document.getElementById('sheetList');
+  if (all && list) {
+    var sync = function () { list.style.display = all.checked ? '' : 'none'; };
+    all.addEventListener('change', sync);
+    sync();
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

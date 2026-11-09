@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Yeni Senaryo' if is_new else 'Senaryoyu Düzenle' }}{% endblock %}
+{% block content %}
+{% set nxt = request.args.get('next', '') %}
+{% set back = nxt if (nxt.startswith('/') and not nxt.startswith('//')) else url_for('cases') %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('cases') }}">Test Senaryoları</a></li>
+  <li class="breadcrumb-item active">{{ 'Yeni senaryo' if is_new else (case.test_code or case.title) }}</li>
+</ol></nav>
+
+<form method="post" class="card">
+  <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+  <div class="card-header">{{ 'Yeni Test Senaryosu' if is_new else 'Test Senaryosunu Düzenle' }}</div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label" for="suite_id">Test paketi <span class="text-danger">*</span></label>
+        <select class="form-select" id="suite_id" name="suite_id" required>
+          <option value="">Seçin…</option>
+          {% for s in suites %}
+          <option value="{{ s.id }}" {% if case.suite_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="test_code">Test kodu</label>
+        <input class="form-control" id="test_code" name="test_code" value="{{ case.test_code }}" placeholder="TC-001">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="module">Modül</label>
+        <input class="form-control" id="module" name="module" value="{{ case.module }}" list="moduleList" placeholder="ör. Kimlik Doğrulama">
+        <datalist id="moduleList">{% for m in modules %}<option value="{{ m }}">{% endfor %}</datalist>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="tester">Test eden</label>
+        <input class="form-control" id="tester" name="tester" value="{{ case.tester }}">
+      </div>
+
+      <div class="col-12">
+        <label class="form-label" for="title">Test adı <span class="text-danger">*</span></label>
+        <input class="form-control" id="title" name="title" value="{{ case.title }}" required autofocus>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label" for="steps">Test adımları</label>
+        <textarea class="form-control" id="steps" name="steps" rows="4" placeholder="1. …&#10;2. …">{{ case.steps }}</textarea>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label" for="expected">Beklenen sonuç</label>
+        <textarea class="form-control" id="expected" name="expected" rows="4">{{ case.expected }}</textarea>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="actual">Gerçekleşen sonuç</label>
+        <textarea class="form-control" id="actual" name="actual" rows="4">{{ case.actual }}</textarea>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label d-block">Test durumu</label>
+        <div class="status-picker" role="radiogroup">
+          {% for key in STATUS_ORDER %}
+          <input type="radio" class="btn-check" name="status" id="st-{{ key }}" value="{{ key }}" {% if case.status == key %}checked{% endif %}>
+          <label class="btn status-option status-{{ key }}" for="st-{{ key }}"><i class="bi {{ STATUS_ICONS[key] }}"></i> {{ STATUS_LABELS[key] }}</label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label" for="bug_link">Hata linki</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-bug"></i></span>
+          <input type="url" class="form-control" id="bug_link" name="bug_link" value="{{ case.bug_link }}" placeholder="https://jira.sirket.com/browse/PRJ-123">
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card-footer d-flex flex-wrap gap-2">
+    <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Kaydet</button>
+    {% if is_new %}
+    <button class="btn btn-outline-primary" name="add_another" value="1"><i class="bi bi-plus-lg"></i> Kaydet ve yeni ekle</button>
+    {% endif %}
+    <a href="{{ back }}" class="btn btn-outline-secondary">İptal</a>
+  </div>
+</form>
+{% endblock %}

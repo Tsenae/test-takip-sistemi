@@ -1,0 +1,77 @@
+{% macro status_badge(status) -%}
+<span class="status-badge status-{{ status }}"><i class="bi {{ STATUS_ICONS[status] }}"></i>{{ STATUS_LABELS[status] }}</span>
+{%- endmacro %}
+
+{# Yığılmış ilerleme çubuğu: başarılı / başarısız / engellendi segmentleri #}
+{% macro stacked_progress(s, height=10) -%}
+<div class="progress-stacked" style="height: {{ height }}px" role="img"
+     aria-label="Başarılı {{ s.passed }}, Başarısız {{ s.failed }}, Engellendi {{ s.blocked }}, Çalıştırılmadı {{ s.not_run }}">
+  {% if s.total %}
+    {% for key in ['passed', 'failed', 'blocked'] %}
+      {% set pct = (s[key] / s.total * 100) %}
+      {% if pct > 0 %}
+      <div class="progress" style="width: {{ pct }}%" title="{{ STATUS_LABELS[key] }}: {{ s[key] }}">
+        <div class="progress-bar" style="background-color: {{ STATUS_COLORS[key] }}"></div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro filter_bar(endpoint, suites, modules, filters, show_status=true, show_search=true) -%}
+<form method="get" action="{{ url_for(endpoint) }}" class="card filter-card mb-4">
+  <div class="card-body py-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-12 col-md-3">
+        <label class="form-label small text-body-secondary mb-1">Test Paketi</label>
+        <select name="suite_id" class="form-select form-select-sm auto-submit">
+          <option value="">Tüm paketler</option>
+          {% for s in suites %}
+          <option value="{{ s.id }}" {% if filters.suite_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label small text-body-secondary mb-1">Modül</label>
+        <select name="module" class="form-select form-select-sm auto-submit">
+          <option value="">Tüm modüller</option>
+          {% for m in modules %}
+          <option value="{{ m }}" {% if filters.module == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if show_status %}
+      <div class="col-12 col-md-2">
+        <label class="form-label small text-body-secondary mb-1">Durum</label>
+        <select name="status" class="form-select form-select-sm auto-submit">
+          <option value="">Tüm durumlar</option>
+          {% for key in STATUS_ORDER %}
+          <option value="{{ key }}" {% if filters.status == key %}selected{% endif %}>{{ STATUS_LABELS[key] }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      {% if show_search %}
+      <div class="col-12 col-md">
+        <label class="form-label small text-body-secondary mb-1">Ara</label>
+        <input type="search" name="q" value="{{ filters.q }}" class="form-control form-control-sm" placeholder="Test adı, kodu, sonuç…">
+      </div>
+      {% endif %}
+      <div class="col-12 col-md-auto d-flex gap-2">
+        <button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filtrele</button>
+        {% if filters.suite_id or filters.module or filters.status or filters.q %}
+        <a href="{{ url_for(endpoint) }}" class="btn btn-sm btn-outline-secondary">Temizle</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</form>
+{%- endmacro %}
+
+{% macro delete_button(action, message, label='', size='sm', next=None) -%}
+<form method="post" action="{{ action }}" class="d-inline" onsubmit="return confirm({{ message|tojson }});">
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  <button class="btn btn-{{ size }} btn-outline-danger" title="Sil"><i class="bi bi-trash"></i>{% if label %} {{ label }}{% endif %}</button>
+</form>
+{%- endmacro %}

@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import stacked_progress, delete_button with context %}
+{% block title %}Test Paketleri{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <div>
+    <h1 class="h3 mb-0">Test Paketleri</h1>
+    <p class="text-body-secondary mb-0 small">{{ suites|length }} paket · {{ overall.total }} test</p>
+  </div>
+  <a href="{{ url_for('suite_new') }}" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg"></i> Boş paket oluştur</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <!-- Excel'den paket ekle -->
+  <div class="col-lg-7">
+    <form method="post" action="{{ url_for('suites_import') }}" enctype="multipart/form-data" class="card h-100" id="suiteImportForm">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-file-earmark-plus me-1"></i> Excel'den paket ekle / güncelle</span>
+        <a href="{{ url_for('excel') }}" class="small fw-normal">Eşleştirmeli içe aktarma →</a>
+      </div>
+      <div class="card-body">
+        <label class="drop-zone w-100 py-4" for="suiteFiles">
+          <i class="bi bi-files fs-2"></i>
+          <span class="d-block mt-1 fw-medium" id="suiteFilesLabel">Bir veya birden fazla Excel dosyasını sürükleyin ya da seçin</span>
+          <span class="small text-body-secondary">Her dosya, dosya adıyla bir paket olur. Aynı adlı paket varsa güncellenir.</span>
+          <input type="file" id="suiteFiles" name="files" accept=".xlsx,.xlsm" multiple class="visually-hidden" required>
+        </label>
+        <ul class="small text-body-secondary mt-3 mb-3 ps-3">
+          <li>Kolonlar başlıklarından otomatik tanınır; tüm sayfalar aktarılır, birden fazla sayfa varsa her sayfa bir modül olur.</li>
+          <li>Testler <strong>Test Kodu</strong>, yoksa <strong>Test Adı + Modül</strong> ile eşleşir; tekrar yüklemek kopya oluşturmaz.</li>
+          <li>Dashboard ve oranlar içe aktarma sonrası otomatik yeniden hesaplanır.</li>
+        </ul>
+        <button class="btn btn-primary" id="suiteImportBtn"><i class="bi bi-upload"></i> Yükle ve içe aktar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Genel özet -->
+  <div class="col-lg-5">
+    <div class="card h-100 overall-card">
+      <div class="card-body d-flex flex-column">
+        <div class="stat-label mb-2">Tüm paketler</div>
+        <div class="d-flex gap-4 mb-3">
+          <div><div class="hero-value mb-0">{{ overall.completion }}<span>%</span></div><div class="small text-body-secondary">Tamamlanma</div></div>
+          <div><div class="hero-value mb-0">{{ overall.success }}<span>%</span></div><div class="small text-body-secondary">Başarı</div></div>
+        </div>
+        {{ stacked_progress(overall, 12) }}
+        <div class="d-flex flex-wrap gap-3 small mt-3">
+          {% for key in STATUS_ORDER %}
+          <span><i class="bi {{ STATUS_ICONS[key] }}" style="color: {{ STATUS_COLORS[key] }}"></i> {{ STATUS_LABELS[key] }}: <strong class="num">{{ overall[key] }}</strong></span>
+          {% endfor %}
+        </div>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-light mt-auto align-self-start"><i class="bi bi-speedometer2"></i> Dashboard'a git</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  {% for s in suites %}
+  <div class="col-md-6 col-xxl-4">
+    <div class="card h-100 suite-card">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+          <div class="min-w-0">
+            <h2 class="h5 mb-1 text-truncate"><a href="{{ url_for('cases', suite_id=s.id) }}">{{ s.name }}</a></h2>
+            <p class="text-body-secondary small mb-0 desc">{{ s.description or 'Açıklama yok' }}</p>
+          </div>
+          <div class="d-flex gap-1 flex-shrink-0">
+            <a href="{{ url_for('suite_edit', suite_id=s.id) }}" class="btn btn-sm btn-outline-secondary" title="Düzenle"><i class="bi bi-pencil"></i></a>
+            {{ delete_button(url_for('suite_delete', suite_id=s.id),
+                 '“' ~ s.name ~ '” paketi ve içindeki ' ~ s.stats.total ~ ' senaryo kalıcı olarak silinecek. Emin misiniz?') }}
+          </div>
+        </div>
+
+        <div class="row text-center g-0 my-3 mini-stats">
+          <div class="col"><div class="num fw-semibold">{{ s.stats.total }}</div><div class="small text-body-secondary">Toplam</div></div>
+          {% for key in STATUS_ORDER %}
+          <div class="col">
+            <div class="num fw-semibold"><i class="bi {{ STATUS_ICONS[key] }} small" style="color: {{ STATUS_COLORS[key] }}"></i> {{ s.stats[key] }}</div>
+            <div class="small text-body-secondary">{{ STATUS_LABELS[key] }}</div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="mt-auto">
+          <div class="d-flex justify-content-between small mb-1">
+            <span>Tamamlanma <strong class="num">{{ s.stats.completion }}%</strong></span>
+            <span>Başarı <strong class="num">{{ s.stats.success }}%</strong></span>
+          </div>
+          {{ stacked_progress(s.stats, 10) }}
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <a href="{{ url_for('cases', suite_id=s.id) }}" class="btn btn-sm btn-light flex-fill"><i class="bi bi-list-check"></i> Senaryolar</a>
+            <form method="post" action="{{ url_for('suites_import') }}" enctype="multipart/form-data" class="flex-fill d-flex">
+              <input type="hidden" name="suite_id" value="{{ s.id }}">
+              <label class="btn btn-sm btn-light flex-fill mb-0" title="Bu paketi bir Excel dosyasıyla güncelle">
+                <i class="bi bi-arrow-repeat"></i> Excel ile güncelle
+                <input type="file" name="files" accept=".xlsx,.xlsm" class="visually-hidden auto-submit">
+              </label>
+            </form>
+            <a href="{{ url_for('case_new', suite_id=s.id) }}" class="btn btn-sm btn-light" title="Senaryo ekle"><i class="bi bi-plus-lg"></i></a>
+            <a href="{{ url_for('excel_export', suite_id=s.id) }}" class="btn btn-sm btn-light" title="Excel'e aktar"><i class="bi bi-file-earmark-excel"></i></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12">
+    <div class="card empty-state text-center py-5">
+      <div class="card-body">
+        <i class="bi bi-collection display-4 text-body-tertiary"></i>
+        <h2 class="h5 mt-3">Henüz paket yok</h2>
+        <p class="text-body-secondary">Yukarıdan Excel dosyalarınızı yükleyin ya da boş bir paket oluşturun.</p>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

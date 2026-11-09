@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import delete_button with context %}
+{% block title %}To-Do Listesi{% endblock %}
+{% block content %}
+{% set here = request.full_path %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">To-Do Listesi</h1>
+    <p class="text-body-secondary mb-0 small">
+      {{ counts.open or 0 }} açık · {{ counts.done or 0 }} tamamlanan
+      {% if counts.overdue %} · <span class="text-danger fw-semibold">{{ counts.overdue }} gecikmiş</span>{% endif %}
+    </p>
+  </div>
+  <div class="btn-group btn-group-sm" role="group" aria-label="Görünüm">
+    <a href="{{ url_for('todos') }}" class="btn btn-primary"><i class="bi bi-list-ul"></i> Liste</a>
+    <a href="{{ url_for('kanban') }}" class="btn btn-outline-primary"><i class="bi bi-kanban"></i> Kanban</a>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('todo_new') }}" class="card mb-3">
+  <input type="hidden" name="next" value="{{ here }}">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label small mb-1" for="title">Yeni görev</label>
+        <input class="form-control" id="title" name="title" placeholder="ör. Ödeme modülü regresyon testlerini tamamla" required>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1" for="priority">Öncelik</label>
+        <select class="form-select" id="priority" name="priority">
+          {% for p in PRIORITY_ORDER %}<option value="{{ p }}" {% if p == 'medium' %}selected{% endif %}>{{ PRIORITY_LABELS[p] }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1" for="due_date">Son tarih</label>
+        <input type="date" class="form-control" id="due_date" name="due_date">
+      </div>
+      <div class="col-md-3 d-grid">
+        <button class="btn btn-primary"><i class="bi bi-plus-lg"></i> Ekle</button>
+      </div>
+      <div class="col-12">
+        <input class="form-control form-control-sm" name="description" placeholder="Açıklama (isteğe bağlı)">
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+  <ul class="nav nav-pills nav-sm">
+    {% for key, label in [('open', 'Açık'), ('done', 'Tamamlanan'), ('all', 'Tümü')] %}
+    <li class="nav-item"><a class="nav-link py-1 px-3 {% if show == key %}active{% endif %}" href="{{ url_for('todos', show=key, sort=sort) }}">{{ label }}</a></li>
+    {% endfor %}
+  </ul>
+  <div class="small">
+    Sırala:
+    <a href="{{ url_for('todos', show=show, sort='due') }}" class="{% if sort != 'priority' %}fw-semibold{% endif %}">Son tarih</a> ·
+    <a href="{{ url_for('todos', show=show, sort='priority') }}" class="{% if sort == 'priority' %}fw-semibold{% endif %}">Öncelik</a>
+  </div>
+</div>
+
+<div class="card">
+  <ul class="list-group list-group-flush todo-list">
+    {% for t in todos %}
+    {% set overdue = (not t.done) and t.due_date and t.due_date < today %}
+    <li class="list-group-item d-flex align-items-start gap-3 priority-{{ t.priority }} {% if t.done %}is-done{% endif %}">
+      <form method="post" action="{{ url_for('todo_toggle', todo_id=t.id) }}" class="pt-1">
+        <input type="hidden" name="next" value="{{ here }}">
+        <input class="form-check-input todo-check auto-submit-check" type="checkbox" {% if t.done %}checked{% endif %}
+               aria-label="Tamamlandı olarak işaretle">
+      </form>
+      <div class="flex-grow-1 min-w-0">
+        <div class="fw-medium todo-title">{{ t.title }}</div>
+        {% if t.description %}<div class="small text-body-secondary">{{ t.description }}</div>{% endif %}
+        <div class="small mt-1 d-flex flex-wrap gap-2 align-items-center">
+          <span class="badge {{ PRIORITY_BADGES[t.priority] }}">{{ PRIORITY_LABELS[t.priority] }}</span>
+          {% if t.status not in ('todo', 'done') %}
+          <span class="todo-status"><i class="bi {{ TODO_STATUS_ICONS[t.status] }}"></i> {{ TODO_STATUS_LABELS[t.status] }}</span>
+          {% endif %}
+          {% if t.due_date %}
+          <span class="{% if overdue %}text-danger fw-semibold{% elif t.due_date == today %}text-warning-emphasis fw-semibold{% else %}text-body-secondary{% endif %}">
+            <i class="bi bi-calendar-event"></i> {{ t.due_date|datefmt }}
+            {% if overdue %}(gecikmiş){% elif t.due_date == today %}(bugün){% endif %}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="d-flex gap-1 flex-shrink-0">
+        <a href="{{ url_for('todo_edit', todo_id=t.id, next=here) }}" class="btn btn-sm btn-outline-secondary" title="Düzenle"><i class="bi bi-pencil"></i></a>
+        {{ delete_button(url_for('todo_delete', todo_id=t.id), 'Bu görev silinecek. Emin misiniz?', next=here) }}
+      </div>
+    </li>
+    {% else %}
+    <li class="list-group-item text-center text-body-secondary py-5">Bu görünümde görev yok.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

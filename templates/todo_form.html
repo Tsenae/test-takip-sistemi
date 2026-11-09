@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Görevi Düzenle{% endblock %}
+{% block content %}
+{% set nxt = request.args.get('next', '') %}
+{% set back = nxt if (nxt.startswith('/') and not nxt.startswith('//')) else url_for('todos') %}
+<nav aria-label="breadcrumb"><ol class="breadcrumb small">
+  <li class="breadcrumb-item"><a href="{{ url_for('todos') }}">To-Do Listesi</a></li>
+  <li class="breadcrumb-item active">Görevi düzenle</li>
+</ol></nav>
+<div class="row"><div class="col-lg-7 col-xl-6">
+  <form method="post" class="card">
+    <input type="hidden" name="next" value="{{ nxt }}">
+    <div class="card-header">Görevi Düzenle</div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label" for="title">Başlık <span class="text-danger">*</span></label>
+        <input class="form-control" id="title" name="title" value="{{ todo.title }}" required autofocus>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="description">Açıklama</label>
+        <textarea class="form-control" id="description" name="description" rows="3">{{ todo.description }}</textarea>
+      </div>
+      <div class="row g-3">
+        <div class="col-sm-4">
+          <label class="form-label" for="status">Durum</label>
+          <select class="form-select" id="status" name="status">
+            {% for s in TODO_STATUS_ORDER %}<option value="{{ s }}" {% if todo.status == s %}selected{% endif %}>{{ TODO_STATUS_LABELS[s] }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label" for="priority">Öncelik</label>
+          <select class="form-select" id="priority" name="priority">
+            {% for p in PRIORITY_ORDER %}<option value="{{ p }}" {% if todo.priority == p %}selected{% endif %}>{{ PRIORITY_LABELS[p] }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="col-sm-4">
+          <label class="form-label" for="due_date">Son tarih</label>
+          <input type="date" class="form-control" id="due_date" name="due_date" value="{{ todo.due_date }}">
+        </div>
+      </div>
+    </div>
+    <div class="card-footer d-flex gap-2">
+      <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Kaydet</button>
+      <a href="{{ back }}" class="btn btn-outline-secondary">İptal</a>
+    </div>
+  </form>
+</div></div>
+{% endblock %}
